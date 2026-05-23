@@ -59,17 +59,28 @@ Use this phase after extracting, transferring, or retrieving your folder from ar
 
 1. Ensure check-manifest.ps1 and manifest.csv are in the root directory of the files you want to check.
 2. Open PowerShell and change directory (cd) to that folder.
-3. Run the script:
-   ```powershell
-   .\check-manifest.ps1
-   ```
-   If execution is blocked, use the bypass command:
-   ```powershell
-   PowerShell.exe -ExecutionPolicy Bypass -File .\check-manifest.ps1
-   ```
-4. The script will read manifest.csv, recalculate the SHA-256 hash for every file listed, and print the results:
-   * OK: The file exists and the hash matches perfectly.
-   * MISSING: The file was present when the manifest was created but is now missing.
-   * CHANGED / CORRUPTED: The file exists but its content has changed.
+3. Run the script. By default, it prints the status of every file. For a faster, quieter run with a progress bar, use the optional `-Fast` parameter:
+   * **Standard Mode** (displays every file status):
+     ```powershell
+     .\check-manifest.ps1
+     ```
+     Or using the bypass command:
+     ```powershell
+     PowerShell.exe -ExecutionPolicy Bypass -File .\check-manifest.ps1
+     ```
+   * **Fast Mode** (hides individual file prints, showing a `tqdm`-style progress bar with progress percentage, remaining time estimate, and processing speed):
+     ```powershell
+     .\check-manifest.ps1 -Fast
+     ```
+     Or using the bypass command:
+     ```powershell
+     PowerShell.exe -ExecutionPolicy Bypass -File .\check-manifest.ps1 -Fast
+     ```
+4. The script will read manifest.csv and recalculate the SHA-256 hash for every file listed:
+   * In standard mode, it prints each file with its status:
+     * OK: The file exists and the hash matches perfectly.
+     * MISSING: The file was present when the manifest was created but is now missing.
+     * CHANGED / CORRUPTED: The file exists but its content has changed.
+   * In fast mode, a `tqdm`-style progress bar updates dynamically.
 
 At the end of the run, the script provides a final summary table showing the count of OK, missing, and changed files. If any issues are found, they will be listed at the bottom of the output.

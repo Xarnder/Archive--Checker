@@ -1,3 +1,65 @@
+param(
+    [switch]$Fast
+)
+
+# Enable UTF-8 encoding for console output to properly render progress bar characters
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {}
+
+function Format-Duration($seconds) {
+    if ([double]::IsNaN($seconds) -or [double]::IsInfinity($seconds) -or $seconds -lt 0) {
+        return "--:--"
+    }
+    $ts = [TimeSpan]::FromSeconds($seconds)
+    if ($ts.TotalHours -ge 1) {
+        return "{0:d2}:{1:d2}:{2:d2}" -f [int]$ts.TotalHours, $ts.Minutes, $ts.Seconds
+    } else {
+        return "{0:d2}:{1:d2}" -f $ts.Minutes, $ts.Seconds
+    }
+}
+
+function Update-ProgressBar($current, $total, $stopwatch) {
+    $percent = 0
+    if ($total -gt 0) {
+        $percent = [math]::Min(100, [math]::Max(0, [math]::Round(($current / $total) * 100)))
+    }
+    
+    $barWidth = 30
+    $completedBlocks = 0
+    if ($total -gt 0) {
+        $completedBlocks = [math]::Min($barWidth, [math]::Max(0, [math]::Floor(($current / $total) * $barWidth)))
+    }
+    $remainingBlocks = $barWidth - $completedBlocks
+    $bar = ("█" * $completedBlocks) + (" " * $remainingBlocks)
+    
+    $elapsed = $stopwatch.Elapsed
+    $elapsedSec = $elapsed.TotalSeconds
+    
+    if ($elapsedSec -gt 0 -and $current -gt 0) {
+        $rate = $current / $elapsedSec
+        if ($rate -ge 1) {
+            $rateStr = "{0:F2}it/s" -f $rate
+        } else {
+            $rateStr = "{0:F2}s/it" -f (1 / $rate)
+        }
+        $etaSec = ($total - $current) / $rate
+    } else {
+        $rateStr = "?it/s"
+        $etaSec = -1
+    }
+    
+    $elapsedStr = Format-Duration $elapsedSec
+    $etaStr = Format-Duration $etaSec
+    
+    $progressText = "`r {0,3}%|{1}| {2}/{3} [{4}<{5}, {6}]" -f $percent, $bar, $current, $total, $elapsedStr, $etaStr, $rateStr
+    
+    # Pad right to clear previous outputs in the same line
+    $progressText = $progressText.PadRight(79).Substring(0, 79)
+    
+    Write-Host -NoNewline $progressText
+}
+
 Write-Host "Starting manifest verification..." -ForegroundColor Cyan
 Write-Host ""
 
@@ -22,34 +84,54 @@ Write-Host ""
 $missingFiles = @()
 $changedFiles = @()
 $okFiles = @()
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $counter = 1
+
+if ($Fast) {
+    Update-ProgressBar 0 $manifest.Count $stopwatch
+}
 
 foreach ($entry in $manifest) {
     $path = $entry.Path
     $expectedHash = $entry.Hash
 
-    Write-Host "Checking $counter of $($manifest.Count): $path"
+    if (-not $Fast) {
+        Write-Host "Checking $counter of $($manifest.Count): $path"
+    }
 
     if (-not (Test-Path -LiteralPath $path)) {
-        Write-Host "  MISSING" -ForegroundColor Red
+        if (-not $Fast) {
+            Write-Host "  MISSING" -ForegroundColor Red
+        }
         $missingFiles += $path
     }
     else {
         $actualHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 
         if ($actualHash -eq $expectedHash) {
-            Write-Host "  OK" -ForegroundColor Green
+            if (-not $Fast) {
+                Write-Host "  OK" -ForegroundColor Green
+            }
             $okFiles += $path
         }
         else {
-            Write-Host "  CHANGED / CORRUPTED" -ForegroundColor Red
-            Write-Host "  Expected: $expectedHash"
-            Write-Host "  Actual:   $actualHash"
+            if (-not $Fast) {
+                Write-Host "  CHANGED / CORRUPTED" -ForegroundColor Red
+                Write-Host "  Expected: $expectedHash"
+                Write-Host "  Actual:   $actualHash"
+            }
             $changedFiles += $path
         }
     }
 
+    if ($Fast) {
+        Update-ProgressBar $counter $manifest.Count $stopwatch
+    }
     $counter++
+}
+
+if ($Fast) {
+    Write-Host ""
 }
 
 Write-Host ""
