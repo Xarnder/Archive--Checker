@@ -31,7 +31,7 @@ function Update-ProgressBar($current, $total, $stopwatch) {
         $completedBlocks = [math]::Min($barWidth, [math]::Max(0, [math]::Floor(($current / $total) * $barWidth)))
     }
     $remainingBlocks = $barWidth - $completedBlocks
-    $bar = ("█" * $completedBlocks) + (" " * $remainingBlocks)
+    $bar = ("#" * $completedBlocks) + (" " * $remainingBlocks)
     
     $elapsed = $stopwatch.Elapsed
     $elapsedSec = $elapsed.TotalSeconds
@@ -152,12 +152,20 @@ else {
     if ($missingFiles.Count -gt 0) {
         Write-Host ""
         Write-Host "Missing files:" -ForegroundColor Red
-        $missingFiles | ForEach-Object { Write-Host $_ }
+        $missingFiles | ForEach-Object {
+            $fileName = Split-Path -Leaf $_
+            Write-Host "  - File: $fileName"
+            Write-Host "    Path: $_"
+        }
     }
 
     if ($changedFiles.Count -gt 0) {
         Write-Host ""
         Write-Host "Changed or corrupted files:" -ForegroundColor Red
-        $changedFiles | ForEach-Object { Write-Host $_ }
+        $changedFiles | ForEach-Object {
+            $fileName = Split-Path -Leaf $_
+            Write-Host "  - File: $fileName"
+            Write-Host "    Path: $_"
+        }
     }
 }
